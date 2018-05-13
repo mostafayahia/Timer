@@ -274,12 +274,13 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
 
     @Override
     protected void onDestroy() {
+        // You MUST save state here to save last verse played before destroying this activity
+        // you MUST also save state before releasing the resources
+        saveLastState();
+
         // must be executed before super.onDestroy()
         // release unneeded resources
-        releaseAllMediaPlayersResources();
-
-        // You MUST save state here to save last verse played before destroying this activity
-        saveLastState();
+        releaseAllMediaPlayers();
 
         super.onDestroy();
     }
