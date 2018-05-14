@@ -35,7 +35,7 @@
     <string name="remove_sura_sign">X</string>
     <string name="start_from_verse">1</string>
     <string name="timer_value">10</string>
-    <string name="sura_not_downloaded">من فضلك حمل السورة أولاً</string>
+    <string name="sura_not_downloaded">من فضلك حمل %1$s أولاً</string>
 
     <!-- using java code to generate
     for (int i = 1; i <= 114; i++) System.out.println("<item>"+i+". </item>"); -->

@@ -935,9 +935,9 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             playNextVerse();
             return true;
         } else {
-            // TODO: make toast displays suraName
-//            String suraName = Utility.getSuraName(this, suraNo);
-            Toast.makeText(this, R.string.sura_not_downloaded, Toast.LENGTH_SHORT).show();
+            String suraName = Utility.getSuraName(this, suraNo);
+            Toast.makeText(this, getString(R.string.sura_not_downloaded, suraName),
+                    Toast.LENGTH_SHORT).show();
             finish();
             return false;
         }
