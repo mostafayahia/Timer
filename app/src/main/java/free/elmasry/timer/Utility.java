@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 import android.content.Context;
+import android.os.Build;
 import android.util.SparseIntArray;
 import android.widget.Toast;
 
@@ -178,5 +179,27 @@ public class Utility {
      */
     static void showToastMessage(Context context, String message) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+    }
+
+    static boolean isLollipop() {
+
+        int apiLevel = Build.VERSION.SDK_INT;
+
+        // targeting lollipop and lollipop_mr1
+        return apiLevel == 21 || apiLevel == 22;
+    }
+
+    static String getSuraName(Context context, int suraNo) {
+
+        // you can use add_sura_spinner_list or choose_sura_spinner_list
+        String[] allSuraNames = context.getResources().getStringArray(R.array.add_sura_spinner_list);
+
+        // sura string in format like "1. البقرة"
+        String suraNoAndName = allSuraNames[suraNo];
+
+        int dotIndex = suraNoAndName.indexOf(".");
+
+        return context.getString(R.string.label_sura) + " " +
+                allSuraNames[suraNo].substring(dotIndex + 1).trim();
     }
 }

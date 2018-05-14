@@ -22,15 +22,17 @@ package free.elmasry.timer;
 
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
@@ -39,17 +41,22 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 
-public class MainActivity extends Activity implements OnClickListener, OnCompletionListener {
+public class MainActivity extends Activity implements OnClickListener, OnCompletionListener,
+        AdapterView.OnItemSelectedListener {
 
     private static final String LOG_TAG = MainActivity.class.getSimpleName();
+    private static final int MAX_NUM_KEY_FOR_LIST_ITEM_SURA_NO = 70;
 
     // we add another path to work for android 6.0
     private String mSheikhDirPath, mSheikhDirPath2;
@@ -65,15 +72,18 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     private TextView mTimerView;
     private SharedPreferences mPref;
     private CheckBox mContinueAfterLastVerseCheckBox;
+    private ArrayList<Integer> mSuraNoList;
+    private View[] mSuraListLayouts;
 
     private static final int INVALID_VALUE = -100;
 
     // convert minutes to milliseconds
     private static final int TIMER_STEP_IN_MILLI = 10 * 60 * 1000;
-    private static final int TIMER_UPPER_LIMIT_IN_MILLI = 70 * 60 * 1000;
+    private static final int TIMER_UPPER_LIMIT_IN_MILLI = 120 * 60 * 1000;
     private static final int TIMER_LOWER_LIMIT_IN_MILLI = 10 * 60 * 1000;
 
-    private Spinner mChooseSuraView;
+    private Spinner mChooseSuraSpinner;
+    private Spinner mAddSuraSpinner;
     private EditText mStartFromView;
     private int mCurrentSuraNo = INVALID_VALUE;
     private int mOldSuraNo = INVALID_VALUE;
@@ -88,6 +98,8 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     private int mLastVerseNum = INVALID_VALUE;
     private int mLastVerseDuration;
 
+    private int mCurrentPlayingListItemIndex = INVALID_VALUE;
+
     // ==== DON'T MODIFY THESE VALUES =======
     private static final String PREF_NAME = "last_state";
     private static final String TIMER_DURATION_IN_MIN_KEY = "timer_duration";
@@ -97,13 +109,14 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     private static final String CONTINUE_SURA_NO_KEY = "CSNKEY";
     private static final String CONTINUE_VERSE_NO_KEY = "CVNKEY";
     private static final String CONTINUE_AFTER_LAST_VERSE_KEY = "CALVKEY";
+    private static final String CURRENT_PLAYING_LIST_ITEM_INDEX_KEY =  "CPLIIKEY";
 
     // this is so important to be able to stop sound from playing when the user
     // press pause button IN THE INSTANT OF the verse is already finished and switch to another one
     private boolean mIsNoSoundState = true;
 
     // make a global variable to save checking close after sura check box many times
-    private boolean mCloseAfterSura;
+    private boolean mCloseAfterList;
 
     private int mElapsedTime;
     private int mEndTime;
@@ -116,18 +129,21 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
         // set root view for this activity
         setContentView(R.layout.activity_main);
 
+        mSuraNoList = new ArrayList<>();
+
         // we play only the voice of Alafasy in this version of the application
         mSheikhDirPath = Environment.getExternalStorageDirectory().getPath() + "/quran_android/audio/5";
         // we add another path to work for android 6.0
         mSheikhDirPath2 = "/mnt/m_internal_storage/quran_android/audio/5";
 
         // get views from the root views of this activity
-        mChooseSuraView = (Spinner) findViewById(R.id.choose_sura_spinner);
+        mChooseSuraSpinner = (Spinner) findViewById(R.id.choose_sura_spinner);
+        mAddSuraSpinner = (Spinner) findViewById(R.id.add_sura_spinner);
         mStartFromView = (EditText) findViewById(R.id.start_from_verse_edittext);
         mTimerView = (TextView) findViewById(R.id.timer_textview);
         mErrorView = (TextView) findViewById(R.id.err_msg_textview);
         mErrorView.setVisibility(View.GONE);
-        CheckBox closeAfterSuraCheckBox = (CheckBox) findViewById(R.id.close_after_sura_checkbox);
+        CheckBox closeAfterListCheckBox = (CheckBox) findViewById(R.id.close_after_list_checkbox);
         mContinueAfterLastVerseCheckBox =
                 (CheckBox) findViewById(R.id.continue_after_last_verse_checkbox);
         Button increaseButton = (Button) findViewById(R.id.increase_button);
@@ -137,17 +153,22 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
         mPlayButton = (Button) findViewById(R.id.play_button);
 
         // setting parameters for the choose sura spinner
-        String[] surasNameArray = getResources().getStringArray(R.array.suras_names);
-        ArrayAdapter<String> surasNamesAdapter =
-                new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, surasNameArray);
-        mChooseSuraView.setAdapter(surasNamesAdapter);
+        String[] chooseSuraArray = getResources().getStringArray(R.array.choose_sura_spinner_list);
+        ArrayAdapter<String> chooseSuraAdapter =
+                new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, chooseSuraArray);
+        mChooseSuraSpinner.setAdapter(chooseSuraAdapter);
+        String[] addSuraArray = getResources().getStringArray(R.array.add_sura_spinner_list);
+        ArrayAdapter<String> addSuraAdapter =
+                new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, addSuraArray);
+        mAddSuraSpinner.setAdapter(addSuraAdapter);
+        mAddSuraSpinner.setOnItemSelectedListener(this);
 
 
         // set event handlers' for these buttons
         mPlayButton.setOnClickListener(this);
         increaseButton.setOnClickListener(this);
         decreaseButton.setOnClickListener(this);
-        closeAfterSuraCheckBox.setOnClickListener(this);
+        closeAfterListCheckBox.setOnClickListener(this);
         mContinueAfterLastVerseCheckBox.setOnClickListener(this);
 
         // restore last state
@@ -167,11 +188,103 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
         // set the cursor at the end of the text in the start from view
         mStartFromView.setSelection(mStartFromView.getText().toString().length());
 
+        // regarding sura list
+        mSuraListLayouts = new View[]{
+                findViewById(R.id.sura_list_item_0),
+                findViewById(R.id.sura_list_item_1),
+                findViewById(R.id.sura_list_item_2),
+                findViewById(R.id.sura_list_item_3),
+                findViewById(R.id.sura_list_item_4),
+                findViewById(R.id.sura_list_item_5),
+                findViewById(R.id.sura_list_item_6)
+        };
+        setClickListenersForSuraListItemLayoutChildren();
+        hideAndClearAllSuraListLayouts();
+        if (mSuraNoList.size() == 0) {
+            mAddSuraSpinner.setVisibility(View.GONE);
+        }
+        updateSuraListLayouts();
+
     }
+
+    private void setClickListenersForSuraListItemLayoutChildren() {
+        for (int i = 0; i < mSuraListLayouts.length; i++) {
+            Button removeButton = (Button) mSuraListLayouts[i].findViewById(R.id.sura_list_item_remove_button);
+            Button playButton = (Button) mSuraListLayouts[i].findViewById(R.id.sura_list_item_play_button);
+            Button pauseButton = (Button) mSuraListLayouts[i].findViewById(R.id.sura_list_item_pause_button);
+            removeButton.setOnClickListener(this);
+            playButton.setOnClickListener(this);
+            pauseButton.setOnClickListener(this);
+        }
+    }
+
+    private void hideAndClearAllSuraListLayouts() {
+        for (int i = 0; i < mSuraListLayouts.length; i++) {
+            // IMPORTANT: read this -> https://stackoverflow.com/questions/4787008/how-to-access-button-inside-include-layout
+            mSuraListLayouts[i].setVisibility(View.GONE);
+            ((TextView) mSuraListLayouts[i].findViewById(R.id.sura_list_item_sura_text_view))
+                    .setText("");
+        }
+    }
+
+    private void updateSuraListLayouts() {
+
+        if (mSuraNoList.size() == 0) return;
+
+        hideAndClearAllSuraListLayouts();
+        makeAllLayoutsInSuraListLayoutsUnSelected();
+        Collections.sort(mSuraNoList);
+
+        for (int i = 0; i < mSuraNoList.size(); i++) {
+            View suraListItemLayout = mSuraListLayouts[i];
+            suraListItemLayout.setVisibility(View.VISIBLE);
+
+            int listItemSuraNo = mSuraNoList.get(i);
+
+            ((TextView) suraListItemLayout.findViewById(R.id.sura_list_item_sura_text_view))
+                    .setText(Utility.getSuraName(this, listItemSuraNo));
+
+            if (i == mCurrentPlayingListItemIndex) {
+                makeLayoutInSuraListLayoutsSelected(i);
+            }
+        }
+
+    }
+
+    private void makeLayoutInSuraListLayoutsSelected(int selectedLayoutIndex) {
+
+        View suraListItemLayout = mSuraListLayouts[selectedLayoutIndex];
+        int listItemLayoutId = getListItemLayoutIdFromIndex(selectedLayoutIndex);
+
+        suraListItemLayout.findViewById(R.id.sura_list_item_remove_button).setVisibility(View.INVISIBLE);
+
+        if ((mResMediaPlayer != null && mResMediaPlayer.isPlaying()) ||
+                (mMediaPlayer != null && mMediaPlayer.isPlaying())) {
+            showListItemPauseButton(listItemLayoutId);
+        } else {
+            showListItemPlayButton(listItemLayoutId);
+        }
+
+        ((TextView) suraListItemLayout.findViewById(R.id.sura_list_item_sura_text_view))
+                .setTypeface(null, Typeface.BOLD);
+    }
+
+    private void makeAllLayoutsInSuraListLayoutsUnSelected() {
+        for (int i = 0; i < mSuraListLayouts.length; i++) {
+            View suraListItemLayout = mSuraListLayouts[i];
+
+            suraListItemLayout.findViewById(R.id.sura_list_item_play_button).setVisibility(View.VISIBLE);
+            suraListItemLayout.findViewById(R.id.sura_list_item_remove_button).setVisibility(View.VISIBLE);
+            suraListItemLayout.findViewById(R.id.sura_list_item_pause_button).setVisibility(View.INVISIBLE);
+
+            ((TextView) suraListItemLayout.findViewById(R.id.sura_list_item_sura_text_view))
+                    .setTypeface(null, Typeface.NORMAL);
+        }
+    }
+
 
     @Override
     protected void onPause() {
-        // TODO Auto-generated method stub
         super.onPause();
 
         // You MUST also save state in onDestroy to save
@@ -188,8 +301,8 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
         setSuraAndVerseViews(suraNo, startFromNo);
         mTimerView.setText(Integer.toString(timerDuration));
 
-        mCloseAfterSura = mPref.getBoolean(CLOSE_AFTER_SURA_KEY, false);
-        ((CheckBox) findViewById(R.id.close_after_sura_checkbox)).setChecked(mCloseAfterSura);
+        mCloseAfterList = mPref.getBoolean(CLOSE_AFTER_SURA_KEY, false);
+        ((CheckBox) findViewById(R.id.close_after_list_checkbox)).setChecked(mCloseAfterList);
 
         boolean continueAfterLastVerse = mPref.getBoolean(CONTINUE_AFTER_LAST_VERSE_KEY, false);
         mContinueAfterLastVerseCheckBox.setChecked(continueAfterLastVerse);
@@ -201,16 +314,32 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             continueOptionHideViews();
         }
 
-        closeAfterSuraOptionAdjustViews();
+        closeAfterListOptionAdjustViews();
+
+        // === AFTER ADDING SURA PLAYLIST FEATURE ===
+        for (int i = 0; i < MAX_NUM_KEY_FOR_LIST_ITEM_SURA_NO; i++) {
+            int listItemSuraNo = mPref.getInt(getListItemSuraNoKey(i), INVALID_VALUE);
+            if (listItemSuraNo == INVALID_VALUE) break;
+            else mSuraNoList.add(listItemSuraNo);
+        }
+        mCurrentPlayingListItemIndex = mPref.getInt(CURRENT_PLAYING_LIST_ITEM_INDEX_KEY, INVALID_VALUE);
+        if (mSuraNoList.size() > 1)
+            findViewById(R.id.continue_after_last_verse_layout).setVisibility(View.GONE);
     }
 
     private void saveLastState() {
+
+        Log.d(LOG_TAG, "saveLastState() called");
+
         Editor ed = mPref.edit();
 
         boolean continueAfterLastVerse = mContinueAfterLastVerseCheckBox.isChecked();
-        ed.putBoolean(CONTINUE_AFTER_LAST_VERSE_KEY, continueAfterLastVerse);
+        if (mSuraNoList.size() == 1) // old behavior for the app
+            ed.putBoolean(CONTINUE_AFTER_LAST_VERSE_KEY, continueAfterLastVerse);
+        else
+            ed.putBoolean(CONTINUE_AFTER_LAST_VERSE_KEY, true); // we want to always continue after last verse
 
-        if (!continueAfterLastVerse) {
+        if (!continueAfterLastVerse && mSuraNoList.size() == 1) { // old behavior for the app
             saveSuraAndVerse();
         }
 
@@ -221,7 +350,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
         // converting from Milliseconds to minutes
         ed.putInt(TIMER_DURATION_IN_MIN_KEY, mEndTime / 60 / 1000);
 
-        ed.putBoolean(CLOSE_AFTER_SURA_KEY, mCloseAfterSura);
+        ed.putBoolean(CLOSE_AFTER_SURA_KEY, mCloseAfterList);
 
         // values regrading continue listening after last verse of previous session
         // the condition handle the case if the user access to the app then exit without playing
@@ -245,10 +374,21 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                 continueSuraNo++;
                 continueVerseNo = 1;
             }
+
             if (continueSuraNo > 114) continueSuraNo = 1;
+
             ed.putInt(CONTINUE_SURA_NO_KEY, continueSuraNo);
             ed.putInt(CONTINUE_VERSE_NO_KEY, continueVerseNo);
         }
+
+        // === AFTER ADDING SURA PLAYLIST FEATURE ===
+        for (int i = 0; i < MAX_NUM_KEY_FOR_LIST_ITEM_SURA_NO; i++) {
+            if (i < mSuraNoList.size())
+                ed.putInt(getListItemSuraNoKey(i), mSuraNoList.get(i));
+            else
+                ed.putInt(getListItemSuraNoKey(i), INVALID_VALUE);
+        }
+        ed.putInt(CURRENT_PLAYING_LIST_ITEM_INDEX_KEY, mCurrentPlayingListItemIndex);
 
         // SO IMPORTANT WITHOUT IT NO THING HAPPEN (SAVED)
         ed.commit();
@@ -262,7 +402,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
 
         // we get this values from the views because it initialized as member values with invalid values
         String startFromNoStr = mStartFromView.getText().toString();
-        String suraNoStr = Integer.toString(mChooseSuraView.getSelectedItemPosition());
+        String suraNoStr = Integer.toString(mChooseSuraSpinner.getSelectedItemPosition());
 
         ed.putInt(START_FROM_KEY, Integer.parseInt(startFromNoStr));
         ed.putInt(SURA_NO_KEY, Integer.parseInt(suraNoStr));
@@ -329,20 +469,151 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             }
             break;
 
-            case R.id.close_after_sura_checkbox:
+            case R.id.close_after_list_checkbox:
                 // saving it in the variable to not access check box many times unnecessary
-                mCloseAfterSura = ((CheckBox) findViewById(R.id.close_after_sura_checkbox)).isChecked();
-                closeAfterSuraOptionAdjustViews();
+                mCloseAfterList = ((CheckBox) findViewById(R.id.close_after_list_checkbox)).isChecked();
+                closeAfterListOptionAdjustViews();
                 break;
 
             case R.id.continue_after_last_verse_checkbox:
                 handleContinueAfterLastVerse();
-
                 break;
+
+            case R.id.sura_list_item_remove_button: {
+                View parent = (LinearLayout) v.getParent();
+                handleSuraListItemRemoveButton(parent.getId());
+            }
+            break;
+
+            case R.id.sura_list_item_play_button: {
+                // we want out layout not frame layout which the button inside
+                View parent = (LinearLayout) v.getParent().getParent();
+                handleListItemPlayButton(parent.getId());
+            }
+            break;
+
+            case R.id.sura_list_item_pause_button: {
+                // we want out layout not frame layout which the button inside
+                View parent = (LinearLayout) v.getParent().getParent();
+                handleListItemPauseButton(parent.getId());
+            }
+            break;
         }
 
     }
 
+    private void handleListItemPlayButton(int parentLayoutId) {
+        int listItemLayoutIndex = getIndexFromListItemLayoutId(parentLayoutId);
+
+        if (mResMediaPlayer == null && mMediaPlayer == null) {
+            mCurrentPlayingListItemIndex = listItemLayoutIndex;
+
+            findViewById(R.id.play_button).setVisibility(View.GONE);
+            findViewById(R.id.edit_sura_layout).setVisibility(View.GONE);
+
+            int suraNo = mSuraNoList.get(listItemLayoutIndex);
+
+            int startFromNo = Integer.parseInt(mStartFromView.getText().toString());
+
+            if (!isPathExist(suraNo, startFromNo)) return; // IMPORTANT: No point for continue
+
+            makeNewStart(suraNo, startFromNo);
+        } else if (mResMediaPlayer != null) {
+            mResMediaPlayer.start();
+        } else {
+            mMediaPlayer.start();
+        }
+
+        mIsNoSoundState = false;
+        updateSuraListLayouts();
+
+        showListItemPauseButton(parentLayoutId);
+    }
+
+    private void handleListItemPauseButton(int parentLayoutId) {
+        mIsNoSoundState = true;
+        showListItemPlayButton(parentLayoutId);
+        if (mResMediaPlayer != null)
+            mResMediaPlayer.pause();
+        else
+            mMediaPlayer.pause();
+    }
+
+    private void showListItemPauseButton(int parentLayoutId) {
+        int listItemLayoutIndex = getIndexFromListItemLayoutId(parentLayoutId);
+        View listItemLayout = mSuraListLayouts[listItemLayoutIndex];
+
+        listItemLayout.findViewById(R.id.sura_list_item_play_button).setVisibility(View.INVISIBLE);
+        listItemLayout.findViewById(R.id.sura_list_item_pause_button).setVisibility(View.VISIBLE);
+    }
+
+    private void showListItemPlayButton(int parentLayoutId) {
+        int listItemLayoutIndex = getIndexFromListItemLayoutId(parentLayoutId);
+        View listItemLayout = mSuraListLayouts[listItemLayoutIndex];
+
+        listItemLayout.findViewById(R.id.sura_list_item_play_button).setVisibility(View.VISIBLE);
+        listItemLayout.findViewById(R.id.sura_list_item_pause_button).setVisibility(View.INVISIBLE);
+    }
+
+    private void handleSuraListItemRemoveButton(int parentLayoutId) {
+
+        int listItemLayoutIndex = getIndexFromListItemLayoutId(parentLayoutId);
+        mSuraNoList.remove(listItemLayoutIndex);
+
+        if (listItemLayoutIndex < mCurrentPlayingListItemIndex)
+            mCurrentPlayingListItemIndex--;
+
+        updateSuraListLayouts();
+
+        if (mSuraNoList.size() < mSuraListLayouts.length)
+            mAddSuraSpinner.setVisibility(View.VISIBLE);
+    }
+
+
+    private int getIndexFromListItemLayoutId(int listItemLayoutId) {
+
+        switch (listItemLayoutId) {
+            case R.id.sura_list_item_0:
+                return 0;
+            case R.id.sura_list_item_1:
+                return 1;
+            case R.id.sura_list_item_2:
+                return 2;
+            case R.id.sura_list_item_3:
+                return 3;
+            case R.id.sura_list_item_4:
+                return 4;
+            case R.id.sura_list_item_5:
+                return 5;
+            case R.id.sura_list_item_6:
+                return 6;
+            default:
+                throw new IllegalArgumentException("undefined list item layout id: " + listItemLayoutId);
+
+        }
+    }
+
+    private int getListItemLayoutIdFromIndex(int index) {
+        switch (index) {
+            case 0:
+                return R.id.sura_list_item_0;
+            case 1:
+                return R.id.sura_list_item_1;
+            case 2:
+                return R.id.sura_list_item_2;
+            case 3:
+                return R.id.sura_list_item_3;
+            case 4:
+                return R.id.sura_list_item_4;
+            case 5:
+                return R.id.sura_list_item_5;
+            case 6:
+                return R.id.sura_list_item_6;
+            default:
+                throw new IllegalArgumentException("index out of boundary max: " + (mSuraListLayouts.length - 1) +
+                        ", but given: " + index);
+        }
+    }
 
     private void handlePlayButton() {
         switch (mPlayButtonState) {
@@ -354,31 +625,15 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                 else
                     mMediaPlayer.pause();
                 mPlayButtonState = STATE_READY_TO_PLAY;
-                mPlayButton.setText(getString(R.string.str_play));
+                mPlayButton.setText(getString(R.string.label_play));
                 break;
             }
             case STATE_READY_TO_PLAY: {
                 if (acceptFieldsData()) {
-                    int suraNo = mChooseSuraView.getSelectedItemPosition();
+                    int suraNo = mChooseSuraSpinner.getSelectedItemPosition();
                     int startFromNo = Integer.parseInt(mStartFromView.getText().toString());
-                    String path = mSheikhDirPath + "/" + suraNo + "/" + startFromNo + ".mp3";
-                    // usually the Quran android application download the first verse of first sura by DEFAULT
-                    // so we need another check to make sure the first sura is download when the user choose it
-                    // and want to play it
-                    if (suraNo == 1) path = mSheikhDirPath + "/" + suraNo + "/" + 2 + ".mp3";
 
-                    if (!Utility.isFileExist(path)) {
-                        // we use another path to be compatible with android 6
-                        path = path.replace(mSheikhDirPath, mSheikhDirPath2);
-                        if (!Utility.isFileExist(path)) {
-                            showErrorMessage(R.string.msg_err_download_sura);
-                            // SO IMPORTANT >> no point for continue
-                            return;
-                        } else {
-                            // now we sure mSheikhDirPath2 is the correct one
-                            mSheikhDirPath = mSheikhDirPath2;
-                        }
-                    }
+                    if (!isPathExist(suraNo, startFromNo)) return; // IMPORTANT: No point for continue
 
 
                     continueOptionHideViews();
@@ -390,17 +645,21 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                     // detect if the user change in edit texts' values or not
                     if (suraNo != mOldSuraNo || startFromNo != mStartFromNo) {
                         // if there is change we start playing as the application is launched again
-                        releaseAllMediaPlayersResources();
-                        mOldSuraNo = suraNo;
-                        mStartFromNo = startFromNo;
-                        // we save it in a member variable to save the process of search in the map for every time we use
-                        mLastVerseNum = Utility.SURA_NUM_VERSES_NUM_MAP.get(mOldSuraNo);
-                        mCurrentSuraNo = mOldSuraNo;
-                        mNextVerseNum = mStartFromNo;
-                        mIsSura1Verse1Played = false;
-                        mErrorView.setVisibility(View.GONE);
-                        setResMediaPlayer(R.raw.al_estaza);
-                        mResMediaPlayer.start();
+                        makeNewStart(suraNo, startFromNo);
+
+                        // ====AFTER ADDING SURA PLAYLIST FEATURE=========
+                        int index = mSuraNoList.indexOf(suraNo);
+                        if (index < 0) /* Not exist in sura list */ {
+                            if (mSuraNoList.size() == mSuraListLayouts.length)
+                                mSuraNoList.remove(mSuraNoList.size() - 1); // removing last item
+                            mSuraNoList.add(suraNo);
+                            Collections.sort(mSuraNoList);
+                        }
+                        index = mSuraNoList.indexOf(suraNo);
+                        mCurrentPlayingListItemIndex = index;
+                        findViewById(R.id.play_button).setVisibility(View.GONE);
+                        handleListItemPlayButton(getListItemLayoutIdFromIndex(index));
+                        mAddSuraSpinner.setVisibility(View.VISIBLE);
                     } else {
                         // if there is no change we will resume what have been played before the button pressed
                         // NOTE: mOldSuraNo and mStartFromNo have valid values now so the user
@@ -411,6 +670,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                             mMediaPlayer.start();
                     }
                     mIsNoSoundState = false;
+                    findViewById(R.id.edit_sura_layout).setVisibility(View.GONE);
 
                 } else {
                     showErrorMessage(R.string.msg_err_incorrect_inputs);
@@ -419,10 +679,52 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                 }
 
                 mPlayButtonState = STATE_READY_TO_PAUSE;
-                mPlayButton.setText(getString(R.string.str_stop));
+                mPlayButton.setText(getString(R.string.label_stop));
                 break;
             }
         }
+    }
+
+    private void makeNewStart(int suraNo, int startFromNo) {
+        releaseAllMediaPlayers();
+        mOldSuraNo = suraNo;
+        mStartFromNo = startFromNo;
+        // we save it in a member variable to save the process of search in the map for every time we use
+        mLastVerseNum = Utility.SURA_NUM_VERSES_NUM_MAP.get(mOldSuraNo);
+        mCurrentSuraNo = mOldSuraNo;
+        mNextVerseNum = mStartFromNo;
+        mIsSura1Verse1Played = false;
+        mErrorView.setVisibility(View.GONE);
+        setResMediaPlayer(R.raw.al_estaza);
+        mResMediaPlayer.start();
+    }
+
+    /**
+     * @param suraNo
+     * @param startFromNo
+     * @return true if the the path for suraNo and startFromNo exists in the device
+     */
+    private boolean isPathExist(int suraNo, int startFromNo) {
+        String path = mSheikhDirPath + "/" + suraNo + "/" + startFromNo + ".mp3";
+        // usually the Quran Android application download the first verse of first sura by DEFAULT
+        // so we need another check to make sure the first sura was downloaded when the user choose it
+        // and want to play it
+        if (suraNo == 1) path = mSheikhDirPath + "/" + suraNo + "/" + 2 + ".mp3";
+
+        if (!Utility.isFileExist(path)) {
+            // we use another path to be compatible with android 6
+            path = path.replace(mSheikhDirPath, mSheikhDirPath2);
+            if (!Utility.isFileExist(path)) {
+                showErrorMessage(R.string.msg_err_download_sura);
+                return false;
+            } else {
+                // now we sure mSheikhDirPath2 is the correct one
+                mSheikhDirPath = mSheikhDirPath2;
+                return true;
+            }
+        }
+
+        return true;
     }
 
     private void handleContinueAfterLastVerse() {
@@ -441,7 +743,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             // then keep every thing as it is and do nothing (No need for updating the views)
             // the next 4 lines for convenient because in this case the user already chose
             // what he wants
-            int suraNoFromVw = mChooseSuraView.getSelectedItemPosition();
+            int suraNoFromVw = mChooseSuraSpinner.getSelectedItemPosition();
             int startFromNoFromVw = Integer.parseInt(mStartFromView.getText().toString());
             if (continueSuraNo != suraNoFromVw || continueVerseNo != startFromNoFromVw)
                 return; //no point to continue
@@ -461,7 +763,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
      * @return true if the edit texts are not empty and accepted data
      */
     private boolean acceptFieldsData() {
-        String suraNoStr = Integer.toString(mChooseSuraView.getSelectedItemPosition());
+        String suraNoStr = Integer.toString(mChooseSuraSpinner.getSelectedItemPosition());
         String startFromStr = mStartFromView.getText().toString();
         if (suraNoStr.length() == 0 || startFromStr.length() == 0)
             return false;
@@ -495,7 +797,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             // this is very bad to memory to do that but I try to solve the issue as much as I can
             // when resetting mMediaPlayer the same lollipop issue appear so we destroy the object
             // and create a new one
-            if (isLollipop()) {
+            if (Utility.isLollipop()) {
                 if (mMediaPlayer != null) {
                     mMediaPlayer.release();
                 }
@@ -553,7 +855,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             mResMediaPlayer = null;
         }
 
-        if (!mCloseAfterSura) {
+        if (!mCloseAfterList) {
             mElapsedTime += mLastVerseDuration;
 
             if (mElapsedTime > mEndTime) {
@@ -566,37 +868,80 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                 }
             } else if (mNextVerseNum <= mLastVerseNum) {
                 playNextVerse();
-            } else if (mCurrentSuraNo < 114) {
+            } else if (mSuraNoList.size() == 1 && mCurrentSuraNo < 114) { // old behavior for the app
                 // increase sura number
                 mCurrentSuraNo++;
-                mLastVerseNum = Utility.SURA_NUM_VERSES_NUM_MAP.get(mCurrentSuraNo);
-                // reset some fields to its default value
-                mIsSura1Verse1Played = false;
-                mNextVerseNum = 1;
 
-                String path = mSheikhDirPath + "/" + mCurrentSuraNo + "/" + mNextVerseNum + ".mp3";
-                if (Utility.isFileExist(path)) {
-                    playNextVerse();
-                } else {
-                    finish();
-                    return;
-                }
-            } else {
+                if (!playNewSura(mCurrentSuraNo)) return; // IMPORTANT: No point to continue
+
+                // === AFTER ADDING PLAY SURA LIST FEATURE ===
+                mSuraNoList.remove(0);
+                mSuraNoList.add(mCurrentSuraNo);
+                updateSuraListLayouts();
+
+            } else if (mSuraNoList.size() == 1) { // old behavior for the app
                 finish();
                 return;
+            } else {
+                // === AFTER ADDING SURA PLAYLIST FEATURE ===
+                if (mCurrentPlayingListItemIndex == mSuraNoList.size() - 1) {
+                    mCurrentPlayingListItemIndex = 0;
+                    mCurrentSuraNo = mSuraNoList.get(0);
+                } else {
+                    mCurrentSuraNo = mSuraNoList.get(++mCurrentPlayingListItemIndex);
+                }
+
+                if (!playNewSura(mCurrentSuraNo)) return; // IMPORTANT: No point to continue
+
+                updateSuraListLayouts();
             }
         } else {
             if (mNextVerseNum <= mLastVerseNum) {
                 playNextVerse();
-            } else {
+            } else if (mSuraNoList.size() == 1) { // old behavior for the app
                 finish();
                 return;
+            } else {
+                // === AFTER ADDING SURA PLAYLIST FEATURE ===
+                if (mCurrentPlayingListItemIndex == mSuraNoList.size() - 1) {
+                    // resetting some fields for the next time the app opens
+                    mCurrentPlayingListItemIndex = 0;
+                    mCurrentSuraNo = mSuraNoList.get(0);
+                    mNextVerseNum = 1;
+
+                    finish();
+                    return;
+                } else {
+                    mCurrentSuraNo = mSuraNoList.get(++mCurrentPlayingListItemIndex);
+                    if (!playNewSura(mCurrentSuraNo)) return; // IMPORTANT: No point to continue
+                    updateSuraListLayouts();
+                }
             }
         }
     }
 
+    /**
+     * @param suraNo
+     * @return return true if the sura mp3 files exist in the device
+     */
+    private boolean playNewSura(int suraNo) {
+        mLastVerseNum = Utility.SURA_NUM_VERSES_NUM_MAP.get(suraNo);
+        // reset some fields to its default value
+        mIsSura1Verse1Played = false;
+        mNextVerseNum = 1;
 
-    // ======================= Helper Methods (NON CORE METHODS) ==========================================
+        String path = mSheikhDirPath + "/" + suraNo + "/" + mNextVerseNum + ".mp3";
+        if (Utility.isFileExist(path)) {
+            playNextVerse();
+            return true;
+        } else {
+            // TODO: make toast displays suraName
+//            String suraName = Utility.getSuraName(this, suraNo);
+            Toast.makeText(this, R.string.sura_not_downloaded, Toast.LENGTH_SHORT).show();
+            finish();
+            return false;
+        }
+    }
 
     /**
      * quick setting and playing for media player for playing mp3 from res/raw folder
@@ -622,7 +967,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     /**
      * release all media players resources used in this application
      */
-    private void releaseAllMediaPlayersResources() {
+    private void releaseAllMediaPlayers() {
         if (mResMediaPlayer != null) {
             mResMediaPlayer.release();
             mResMediaPlayer = null;
@@ -637,13 +982,13 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
      * disappearing and appearing views based on the user choice for closing the
      * app after finishing sura or not
      */
-    private void closeAfterSuraOptionAdjustViews() {
+    private void closeAfterListOptionAdjustViews() {
 
         Button increaseButton = (Button) findViewById(R.id.increase_button);
         Button decreaseButton = (Button) findViewById(R.id.decrease_button);
         TextView closeAppAfterStrView = (TextView) findViewById(R.id.close_app_after_str_textview);
 
-        if (mCloseAfterSura) {
+        if (mCloseAfterList) {
             increaseButton.setVisibility(View.GONE);
             decreaseButton.setVisibility(View.GONE);
             closeAppAfterStrView.setVisibility(View.GONE);
@@ -668,7 +1013,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
      * set values for sura and verse in the app activity
      */
     private void setSuraAndVerseViews(int suraNo, int startFromNo) {
-        mChooseSuraView.setSelection(suraNo);
+        mChooseSuraSpinner.setSelection(suraNo);
         mStartFromView.setText(Integer.toString(startFromNo));
         // set the cursor at the end of the text in the start from view
         mStartFromView.setSelection(mStartFromView.getText().toString().length());
@@ -680,7 +1025,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
      */
     private void continueOptionHandleMismatchIfExist() {
         if (mContinueAfterLastVerseCheckBox.isChecked()) {
-            int suraNo = mChooseSuraView.getSelectedItemPosition();
+            int suraNo = mChooseSuraSpinner.getSelectedItemPosition();
             int startFromNo = Integer.parseInt(mStartFromView.getText().toString());
 
             int continueSuraNo = mPref.getInt(CONTINUE_SURA_NO_KEY, INVALID_VALUE);
@@ -698,162 +1043,40 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
      */
     private void handleLollipopIssue() {
 
-        if (!isLollipop()) {
+        if (!Utility.isLollipop()) {
             return;
         }
 
-        Log.d(LOG_TAG, "handleLollipop method is called");
         mMediaPlayer.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK);
     }
 
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        // this handle item click in the add sura spinner only
+        if (position > 0) {
+            mSuraNoList.add(position);
+            Collections.sort(mSuraNoList);
 
+            // next code IMPORTANT because current playing list item index may be changed.
+            if (position < mCurrentSuraNo) mCurrentPlayingListItemIndex++;
 
-    private boolean isLollipop() {
-
-        int apiLevel = Build.VERSION.SDK_INT;
-
-        // targeting lollipop and lollipop_mr1
-        return apiLevel == Build.VERSION_CODES.LOLLIPOP || apiLevel == 22;
+            updateSuraListLayouts();
+            mAddSuraSpinner.setSelection(0);
+            if (mSuraNoList.size() == mSuraListLayouts.length)
+                mAddSuraSpinner.setVisibility(View.GONE);
+        }
     }
 
-	/*package free.eltayeb.timer;
+    @Override
+    public void onNothingSelected(AdapterView<?> parent) {
 
+    }
 
-
-	import java.io.File;
-	import java.io.IOException;
-
-	import android.app.Activity;
-	import android.content.Context;
-	import android.content.SharedPreferences;
-	import android.media.AudioManager;
-	import android.media.MediaPlayer;
-	import android.media.MediaPlayer.OnCompletionListener;
-	import android.os.Bundle;
-	import android.os.Environment;
-	import android.widget.Button;
-	import android.widget.TextView;
-	import android.view.View;
-
-
-	public class MainActivity extends Activity implements View.OnClickListener, OnCompletionListener {
-
-		public static final short LIMIT = 111;
-		private Button playBtn;
-		private TextView suraNoTxt;
-		private TextView startFromTxt;
-		private MediaPlayer mediaPlayer;
-		private String shiekhDirPath;
-		private byte suraNo;
-		private short counter, N;
-		private int end;
-		private SharedPreferences mPrefs;
-
-		@Override
-		protected void onCreate(Bundle savedInstanceState) {
-			super.onCreate(savedInstanceState);
-			setContentView(R.layout.activity_main);
-			mPrefs = getSharedPreferences("setting", Context.MODE_PRIVATE);
-			loadView();
-			initFields();
-			playBtn.setOnClickListener(this);
-			shiekhDirPath = Environment.getExternalStorageDirectory().getPath() + "/quran_android/audio/5";
-		}
-
-		@Override
-		protected void onResume() {
-			// TODO Auto-generated method stub
-			super.onResume();
-			mediaPlayer = new MediaPlayer();
-			mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-			mediaPlayer.setLooping(false);
-		}
-
-		@Override
-		protected void onDestroy() {
-			// TODO Auto-generated method stub
-			super.onDestroy();
-			if (mediaPlayer.isPlaying()) setPreferences(suraNo, counter - 1);
-			else                         setPreferences(suraNo, counter);
-			mediaPlayer.release();
-			mediaPlayer = null;
-		}
-
-		private void play() {
-			mediaPlayer.setOnCompletionListener(this);
-			mediaPlayer.setVolume(0.25f, 0.25f);
-			if (suraNo != 1 && suraNo !=9 && counter == 1)
-				playVerse(mediaPlayer, shiekhDirPath + "/1/1.mp3");
-			else
-				playVerse(mediaPlayer, shiekhDirPath + "/" + suraNo + "/" + counter++ + ".mp3");
-		}
-
-		private void playVerse(MediaPlayer mp, String path) {
-			mp.reset();
-			try {
-				mp.setDataSource(path);
-				mp.prepare();
-			} catch (IllegalArgumentException | SecurityException
-					| IllegalStateException | IOException e) {
-				e.printStackTrace();
-			}
-
-			mp.start();
-
-		}
-
-		@Override
-		public void onCompletion(MediaPlayer mp) {
-			// TODO Auto-generated method stub
-			if (counter <= N && counter <= end)
-				playVerse(mp, shiekhDirPath + "/" + suraNo + "/" + counter++ + ".mp3");
-			else {
-				if (counter > N) {
-					counter = 1;
-					if (suraNo < 114) suraNo += 1;
-					else              suraNo  = 1;
-				}
-				finish();
-			}
-		}
-
-		@Override
-		public void onClick(View v) {
-			// TODO Auto-generated method stub
-			switch (v.getId()) {
-			case R.id.playBtn:
-				initFields();
-				N   = (short) new File(shiekhDirPath + "/" + suraNo).list().length;
-				end = counter + LIMIT - 1;
-
-				play();
-				break;
-			}
-		}
-
-
-		private void loadView() {
-			// TODO Auto-generated method stub
-			playBtn      = (Button)   findViewById(R.id.playBtn);
-			suraNoTxt    = (TextView) findViewById(R.id.suraNoTxt);
-			startFromTxt = (TextView) findViewById(R.id.startFromTxt);
-			startFromTxt.setText(String.valueOf(mPrefs.getInt("startFrom", 1)));
-			suraNoTxt.setText(String.valueOf(mPrefs.getInt("suraNo", 1)));
-		}
-
-		private void setPreferences(int suraNo, int startFrom) {
-			SharedPreferences.Editor ed = mPrefs.edit();
-			ed.putInt("suraNo", suraNo);
-			ed.putInt("startFrom", startFrom);
-			ed.commit();
-		}
-
-		private void initFields() {
-			suraNo  = Byte.parseByte(suraNoTxt.getText().toString());
-			counter = Short.parseShort(startFromTxt.getText().toString()) ;
-		}
-
-	}
-	 */
-
+    public String getListItemSuraNoKey(int index) {
+        if (index >= MAX_NUM_KEY_FOR_LIST_ITEM_SURA_NO)
+            throw new IllegalArgumentException("index exceeds the max index (" +
+                    (MAX_NUM_KEY_FOR_LIST_ITEM_SURA_NO - 1) + ") the given: ");
+        // DON'T MODIFY THE NEXT STRING TO MAKE RESTORE LAST STATE CORRECT
+        return "list_item_"+index+"_sura_no_key";
+    }
 }

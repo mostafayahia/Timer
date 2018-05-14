@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <Button
+        android:id="@+id/sura_list_item_remove_button"
+        android:layout_width="@dimen/sura_list_item_button_size"
+        android:layout_height="@dimen/sura_list_item_button_size"
+        android:background="@drawable/touch_selector_remove_button" />
+
+    <!-- WE MAY IMPLEMENT THIS FEATURE LATER :-) -->
+    <!--<FrameLayout-->
+    <!--android:layout_width="@dimen/sura_list_item_button_min_size"-->
+    <!--android:layout_height="@dimen/sura_list_item_button_min_size">-->
+
+    <!--<CheckBox-->
+    <!--android:id="@+id/sura_list_item_check_box"-->
+    <!--android:layout_width="wrap_content"-->
+    <!--android:layout_height="wrap_content"-->
+    <!--android:layout_gravity="center" />-->
+
+    <!--</FrameLayout>-->
+
+    <FrameLayout
+        android:layout_width="@dimen/sura_list_item_button_size"
+        android:layout_height="@dimen/sura_list_item_button_size">
+
+        <Button
+            android:id="@+id/sura_list_item_play_button"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/touch_selector_play_button"
+            android:visibility="visible" />
+
+        <Button
+            android:id="@+id/sura_list_item_pause_button"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/touch_selector_pause_button"
+            android:visibility="invisible" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/sura_list_item_sura_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        tools:text="سورة آل عمران" />
+
+</LinearLayout>

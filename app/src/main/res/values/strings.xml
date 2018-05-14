@@ -18,28 +18,28 @@
     <string name="app_name">تايمر قرآنى</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
-    <string name="str_sura_number">رقم السورة</string>
-    <string name="str_test_sura_number">13</string>
-    <string name="str_start_from_verse">بداية من الآية</string>
-    <string name="str_one_number">1</string>
-    <string name="str_fifteen_no">15</string>
-    <string name="str_ten_no">10</string>
-    <string name="str_close_app_after">"غلق التطبيق بعد (دقيقة)"</string>
-    <string name="str_plus_sign">+</string>
-    <string name="str_minus_sign">-</string>
-    <string name="str_play">تشغيــــــل</string>
-    <string name="str_stop">إيقـــــافــــ</string>
-    <string name="str_sura">سورة</string>
-    <string name="str_close_after_sura">غلق بعد أنتهاء السورة</string>
-    <string name="str_continue_after_last_verse">تكملة بعد آخر آية سمعتها</string>
+    <string name="label_sura_number">رقم السورة</string>
+    <string name="label_start_from_verse">بداية من الآية</string>
+    <string name="label_close_app_after">"غلق التطبيق بعد (دقيقة)"</string>
+    <string name="label_plus_sign">+</string>
+    <string name="label_minus_sign">-</string>
+    <string name="label_play">تشغيــــــل</string>
+    <string name="label_stop">إيقـــــافــــ</string>
+    <string name="label_sura">سورة</string>
+    <string name="label_close_after_list">غلق بعد أنتهاء القائمة</string>
+    <string name="label_continue_after_last_verse">تكملة بعد آخر آية سمعتها</string>
     <string name="msg_err_incorrect_inputs">يلزم أختيار السورة ويلزم إدخال رقم صحيح للآية المراد البدء منها</string>
     <string name="msg_err_download_sura">يلزم تحميل السورة المختارة للقارى مشارى راشد بأستخدام تطبيق ** قرآن أندرويد ** لتمكن من سماعها</string>
     <string name="msg_cannot_exceed">لقد وصلت للحد الأقصى ... لا يمكن الزيادة</string>
     <string name="msg_cannot_decrease">لقد وصلت للحد الأدنى ... لايمكن النقصان</string>
+    <string name="remove_sura_sign">X</string>
+    <string name="start_from_verse">1</string>
+    <string name="timer_value">10</string>
+    <string name="sura_not_downloaded">من فضلك حمل السورة أولاً</string>
 
     <!-- using java code to generate
     for (int i = 1; i <= 114; i++) System.out.println("<item>"+i+". </item>"); -->
-    <string-array name="suras_names">
+    <string-array name="choose_sura_spinner_list">
         <item>أختر السورة</item>
         <item>1. الفاتحة</item>
         <item>2. البقرة</item>
@@ -156,5 +156,124 @@
         <item>113. الفلق</item>
         <item>114. الناس</item>
     </string-array>
+
+    <string-array name="add_sura_spinner_list">
+        <item>أضف السورة</item>
+        <item>1. الفاتحة</item>
+        <item>2. البقرة</item>
+        <item>3. آل عمران</item>
+        <item>4. النساء</item>
+        <item>5. المائدة</item>
+        <item>6. الأنعام</item>
+        <item>7. الأعراف</item>
+        <item>8. الأنفال</item>
+        <item>9. التوبة</item>
+        <item>10. يونس</item>
+        <item>11. هود</item>
+        <item>12. يوسف</item>
+        <item>13. الرعد</item>
+        <item>14. إبراهيم</item>
+        <item>15. الحجر</item>
+        <item>16. النحل</item>
+        <item>17. الإسراء</item>
+        <item>18. الكهف</item>
+        <item>19. مريم</item>
+        <item>20. طه</item>
+        <item>21. الأنبياء</item>
+        <item>22. الحج</item>
+        <item>23. المؤمنون</item>
+        <item>24. النور</item>
+        <item>25. الفرقان</item>
+        <item>26. الشعراء</item>
+        <item>27. النمل</item>
+        <item>28. القصص</item>
+        <item>29. العنكبوت</item>
+        <item>30. الروم</item>
+        <item>31. لقمان</item>
+        <item>32. السجدة</item>
+        <item>33. الأحزاب</item>
+        <item>34. سبأ</item>
+        <item>35. فاطر</item>
+        <item>36. يس</item>
+        <item>37. الصافات</item>
+        <item>38. ص</item>
+        <item>39. الزمر</item>
+        <item>40. غافر</item>
+        <item>41. فصلت</item>
+        <item>42. الشورى</item>
+        <item>43. الزخرف</item>
+        <item>44. الدخان</item>
+        <item>45. الجاثية</item>
+        <item>46. الأحقاف</item>
+        <item>47. محمد</item>
+        <item>48. الفتح</item>
+        <item>49. الحجرات</item>
+        <item>50. ق</item>
+        <item>51. الذاريات</item>
+        <item>52. الطور</item>
+        <item>53. النجم</item>
+        <item>54. القمر</item>
+        <item>55. الرحمن</item>
+        <item>56. الواقعة</item>
+        <item>57. الحديد</item>
+        <item>58. المجادلة</item>
+        <item>59. الحشر</item>
+        <item>60. الممتحنة</item>
+        <item>61. الصف</item>
+        <item>62. الجمعة</item>
+        <item>63. المنافقون</item>
+        <item>64. التغابن</item>
+        <item>65. الطلاق</item>
+        <item>66. التحريم</item>
+        <item>67. الملك</item>
+        <item>68. القلم</item>
+        <item>69. الحاقة</item>
+        <item>70. المعارج</item>
+        <item>71. نوح</item>
+        <item>72. الجن</item>
+        <item>73. المزمل</item>
+        <item>74. المدثر</item>
+        <item>75. القيامة</item>
+        <item>76. الإنسان</item>
+        <item>77. المرسلات</item>
+        <item>78. النبأ</item>
+        <item>79. النازعات</item>
+        <item>80. عبس</item>
+        <item>81. التكوير</item>
+        <item>82. الإنفطار</item>
+        <item>83. المطففين</item>
+        <item>84. الإنشقاق</item>
+        <item>85. البروج</item>
+        <item>86. الطارق</item>
+        <item>87. الأعلى</item>
+        <item>88. الغاشية</item>
+        <item>89. الفجر</item>
+        <item>90. البلد</item>
+        <item>91. الشمس</item>
+        <item>92. الليل</item>
+        <item>93. الضحى</item>
+        <item>94. الشرح</item>
+        <item>95. التين</item>
+        <item>96. العلق</item>
+        <item>97. القدر</item>
+        <item>98. البينة</item>
+        <item>99. الزلزلة</item>
+        <item>100. العاديات</item>
+        <item>101. القارعة</item>
+        <item>102. التكاثر</item>
+        <item>103. العصر</item>
+        <item>104. الهمزة</item>
+        <item>105. الفيل</item>
+        <item>106. قريش</item>
+        <item>107. الماعون</item>
+        <item>108. الكوثر</item>
+        <item>109. الكافرون</item>
+        <item>110. النصر</item>
+        <item>111. المسد</item>
+        <item>112. الإخلاص</item>
+        <item>113. الفلق</item>
+        <item>114. الناس</item>
+    </string-array>
+
 
 </resources>
