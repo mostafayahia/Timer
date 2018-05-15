@@ -518,6 +518,14 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             if (!isPathExist(suraNo, startFromNo)) return; // IMPORTANT: No point for continue
 
             makeNewStart(suraNo, startFromNo);
+        } else if (listItemLayoutIndex != mCurrentPlayingListItemIndex) {
+            mCurrentPlayingListItemIndex = listItemLayoutIndex;
+
+            int suraNo = mSuraNoList.get(listItemLayoutIndex);
+
+            if (!isPathExist(suraNo, 1)) return; // IMPORTANT: No point for continue
+
+            makeNewStart(suraNo, 1);
         } else if (mResMediaPlayer != null) {
             mResMediaPlayer.start();
         } else {
