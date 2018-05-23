@@ -1079,11 +1079,16 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         // this handle item click in the add sura spinner only
         if (position > 0) {
+            // NOTE: WHEN FIRST OPEN APP AND ADD SURA THE mCurrentSuraNo has INVALID_VALUE value so
+            // so we did BEFORE MAKING ADD TO mSuraNoList:
+            int currentSuraNo = (mCurrentPlayingListItemIndex != INVALID_VALUE) ?
+                    mSuraNoList.get(mCurrentPlayingListItemIndex) : INVALID_VALUE;
+
             mSuraNoList.add(position);
             Collections.sort(mSuraNoList);
 
             // next code IMPORTANT because current playing list item index may be changed.
-            if (position < mCurrentSuraNo) mCurrentPlayingListItemIndex++;
+            if (position < currentSuraNo) mCurrentPlayingListItemIndex++;
 
             updateSuraListLayouts();
             mAddSuraSpinner.setSelection(0);
