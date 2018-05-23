@@ -25,10 +25,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -36,6 +38,7 @@ import android.media.MediaPlayer.OnCompletionListener;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
+import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -109,7 +112,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     private static final String CONTINUE_SURA_NO_KEY = "CSNKEY";
     private static final String CONTINUE_VERSE_NO_KEY = "CVNKEY";
     private static final String CONTINUE_AFTER_LAST_VERSE_KEY = "CALVKEY";
-    private static final String CURRENT_PLAYING_LIST_ITEM_INDEX_KEY =  "CPLIIKEY";
+    private static final String CURRENT_PLAYING_LIST_ITEM_INDEX_KEY = "CPLIIKEY";
 
     // this is so important to be able to stop sound from playing when the user
     // press pause button IN THE INSTANT OF the verse is already finished and switch to another one
@@ -121,6 +124,12 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     private int mElapsedTime;
     private int mEndTime;
 
+    // Storage Permissions
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+    };
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -129,6 +138,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
         // set root view for this activity
         setContentView(R.layout.activity_main);
 
+        verifyStoragePermissions(this);
         mSuraNoList = new ArrayList<>();
 
         // we play only the voice of Alafasy in this version of the application
@@ -283,16 +293,6 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     }
 
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        // You MUST also save state in onDestroy to save
-        // last verse played before destroying this activity
-        saveLastState();
-    }
-
-
     private void restoreLastState() {
         int timerDuration = mPref.getInt(TIMER_DURATION_IN_MIN_KEY, TIMER_STEP_IN_MILLI / 1000 / 60);
         // setting choose sura spinner to zero will set the spinner to the first item on it
@@ -371,7 +371,13 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             }
 
             if (continueVerseNo > mLastVerseNum) {
-                continueSuraNo++;
+                if (mSuraNoList.size() == 1) { // old behavior of the app
+                    continueSuraNo++;
+                } else {
+                    if (++mCurrentPlayingListItemIndex >= mSuraNoList.size())
+                        mCurrentPlayingListItemIndex = 0;
+                    continueSuraNo = mSuraNoList.get(mCurrentPlayingListItemIndex);
+                }
                 continueVerseNo = 1;
             }
 
@@ -503,9 +509,11 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
     }
 
     private void handleListItemPlayButton(int parentLayoutId) {
+
         int listItemLayoutIndex = getIndexFromListItemLayoutId(parentLayoutId);
 
-        if (mResMediaPlayer == null && mMediaPlayer == null) {
+        if (mResMediaPlayer == null && mMediaPlayer == null &&
+                listItemLayoutIndex == mCurrentPlayingListItemIndex) {
             mCurrentPlayingListItemIndex = listItemLayoutIndex;
 
             findViewById(R.id.play_button).setVisibility(View.GONE);
@@ -518,21 +526,29 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             if (!isPathExist(suraNo, startFromNo)) return; // IMPORTANT: No point for continue
 
             makeNewStart(suraNo, startFromNo);
+
         } else if (listItemLayoutIndex != mCurrentPlayingListItemIndex) {
-            mCurrentPlayingListItemIndex = listItemLayoutIndex;
+
+            findViewById(R.id.play_button).setVisibility(View.GONE);
+            findViewById(R.id.edit_sura_layout).setVisibility(View.GONE);
 
             int suraNo = mSuraNoList.get(listItemLayoutIndex);
 
             if (!isPathExist(suraNo, 1)) return; // IMPORTANT: No point for continue
 
+            mCurrentPlayingListItemIndex = listItemLayoutIndex;
+
             makeNewStart(suraNo, 1);
+
         } else if (mResMediaPlayer != null) {
             mResMediaPlayer.start();
+
         } else {
             mMediaPlayer.start();
         }
 
         mIsNoSoundState = false;
+
         updateSuraListLayouts();
 
         showListItemPauseButton(parentLayoutId);
@@ -641,7 +657,8 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
                     int suraNo = mChooseSuraSpinner.getSelectedItemPosition();
                     int startFromNo = Integer.parseInt(mStartFromView.getText().toString());
 
-                    if (!isPathExist(suraNo, startFromNo)) return; // IMPORTANT: No point for continue
+                    if (!isPathExist(suraNo, startFromNo))
+                        return; // IMPORTANT: No point for continue
 
 
                     continueOptionHideViews();
@@ -833,7 +850,7 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             } catch (IllegalArgumentException | SecurityException | IllegalStateException | IOException e) {
                 // VERY IMPORTANT TO ADD THIS PERMISSION TO MAKE THE APP WORK FOR ANDROID 6
                 // https://stackoverflow.com/questions/8854359/exception-open-failed-eacces-permission-denied-on-android
-                Log.w("Timer", e.getMessage());
+                Log.e("Timer", e.getMessage());
 
                 // this code executes usually if not all verses of the sura are downloaded (user downloads only verses per page using
                 // Quran android settings)
@@ -1085,6 +1102,27 @@ public class MainActivity extends Activity implements OnClickListener, OnComplet
             throw new IllegalArgumentException("index exceeds the max index (" +
                     (MAX_NUM_KEY_FOR_LIST_ITEM_SURA_NO - 1) + ") the given: ");
         // DON'T MODIFY THE NEXT STRING TO MAKE RESTORE LAST STATE CORRECT
-        return "list_item_"+index+"_sura_no_key";
+        return "list_item_" + index + "_sura_no_key";
+    }
+
+    /**
+     * Checks if the app has permission to write to device storage
+     * <p>
+     * If the app does not has permission then the user will be prompted to grant permissions
+     *
+     * @param activity
+     */
+    public static void verifyStoragePermissions(Activity activity) {
+        // Check if we have write permission
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        }
     }
 }

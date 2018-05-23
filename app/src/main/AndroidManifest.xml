@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="free.elmasry.timer"
-    android:versionCode="11"
-    android:versionName="4.0" >
+    android:versionCode="13"
+    android:versionName="4.2" >
 
     <!--VERY IMPORTANT TO MAKE APP WORK FOR ANDROID 6-->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <uses-sdk
